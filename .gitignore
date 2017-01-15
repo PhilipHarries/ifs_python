@@ -87,3 +87,8 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+*.pgm
+*.ifs
+encoded_files/
+output/
