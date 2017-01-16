@@ -27,8 +27,15 @@ class BadDomainSizeError(Exception):
 class OutOfArrayError(Exception):
     """ error class for IFSImage """
 
+    def __init__(self, value):
+        self.value = value
+        Exception.__init__(self)
+
     def __str__(self):
-        return "Requested value that is out of array!"
+        if self.value is None:
+            return "Requested value that is out of array!"
+        else:
+            return "value is outside array! (" + self.value + ")"
 
 
 class NullValueError(Exception):
@@ -58,7 +65,7 @@ class IFSImage(object):
         self.width_in_ranges = self.width / self.range_size
         self.height_in_ranges = self.height / self.range_size
         self.width_in_domains = self.width + 1 - self.domain_size
-        self.height_in_domains = self.width + 1 - self.domain_size
+        self.height_in_domains = self.height + 1 - self.domain_size
         self.num_ranges = self.width_in_ranges * self.height_in_ranges
         self.num_domains = self.width_in_domains * self.height_in_domains
         self.ranges = [None] * self.num_ranges
@@ -113,32 +120,42 @@ class IFSImage(object):
         if j is None:
             x_range_coord = i % self.width_in_ranges
             y_range_coord = i / self.width_in_ranges
-            self.put_range(new_range, x_range_coord, y_range_coord)
+            try:
+                self.put_range(new_range, x_range_coord, y_range_coord)
+            except OutOfArrayError as e:
+                print "tried to put range " + str(i)
+                raise e
         else:
             x_coord = i * self.range_size
             y_coord = j * self.range_size
             self.put_square_submatrix(x_coord, y_coord, new_range)
 
-    def get_ranges(self):
+    def get_ranges(self, start=None):
         """ return an iterator over all ranges """
-        for count in xrange(self.num_ranges):
+        if start is None:
+            start = 0
+        for count in xrange(start, self.num_ranges):
             yield self.get_range(count)
 
     def get_domains(self):
         """ return an iterator over all domains """
         for count in xrange(self.num_domains):
-            yield self.get_domain(count)
+            try:
+                yield self.get_domain(count)
+            except OutOfArrayError as e:
+                print "failed to get domain " + str(count)
+                raise e
 
     def get_domain(self, i, j=None, decoding=False):
         """ return a given domain """
         if j is None:
             if i < 0 or i > self.num_domains:
-                raise OutOfArrayError
+                raise OutOfArrayError("requested value " + i + " + is not in the range (0 - " + str(self.num_domains) + ")")
             if self.domains[i] is not None and not decoding:
                 return self.domains[i]
             else:
                 x_domain_coord = i % self.width_in_domains
-                y_domain_coord = i / self.height_in_domains
+                y_domain_coord = i / self.width_in_domains
                 if not decoding:
                     self.domains[i] = self.get_domain(x_domain_coord, y_domain_coord)
                     return self.domains[i]
@@ -151,7 +168,10 @@ class IFSImage(object):
     def get_square_submatrix(self, x, y, size):
         """ get any square submatrix """
         if (size + x > self.width or size + y > self.height or x < 0 or y < 0):
-            raise OutOfArrayError
+            print "requested size " + str(size) + " + x " + str(x) + " = " + str(size + x)
+            print "requested size " + str(size) + " + y " + str(y) + " = " + str(size + y)
+            print "in array matrix of width " + str(self.width) + " and height " + str(self.height)
+            raise OutOfArrayError("requested a square submatrix that overlaps the edge of image array!")
         data = [None] * (size * size)
         for i in range(size):
             for j in range(size):
@@ -165,7 +185,10 @@ class IFSImage(object):
     def put_square_submatrix(self, x, y, new_matrix):
         """ put any square submatrix """
         if (new_matrix.width + x > self.width or new_matrix.height + y > self.height or x < 0 or y < 0):
-            raise OutOfArrayError
+            print "tried to put new matrix of width " + str(new_matrix.width) + " to x value " + str(x) + " which extends to " + str(new_matrix.width + x)
+            print "tried to put new matrix of height " + str(new_matrix.height) + " to y value " + str(y) + " which extends to " + str(new_matrix.width + y)
+            print "in array matrix of width " + str(self.width) + " and height " + str(self.height)
+            raise OutOfArrayError("tried to put a square submatrix that overlaps the edge of image array!")
         for i in xrange(new_matrix.width):
             for j in xrange(new_matrix.height):
                 self.set_value(new_matrix.data[j * new_matrix.width + i], x + i, y + j)

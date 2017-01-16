@@ -2,6 +2,7 @@
 import random
 import os
 import optparse
+import datetime
 import ifs
 
 
@@ -99,30 +100,44 @@ def main():
     in_file = "input/" + options.file
     range_size = options.rangesize
     domain_size = options.domainsize
-    ifs_file = "encoded_files/" + in_file.lstrip("input/").rstrip(".pgm") + "_r" + str(range_size) + "_d" + str(domain_size) + ".ifs"
-    out_file = "output/" + ifs_file.lstrip("encoded_files/").rstrip(".ifs") + ".pgm"
+    ifs_file = "encoded_files/" + in_file.replace("input/", "").replace(".pgm", "") + "_r" + str(range_size) + "_d" + str(domain_size) + ".ifs"
+    out_file = "output/" + ifs_file.replace("encoded_files/", "").replace(".ifs", ".pgm")
     verbosity = options.verbose
 
+    start_time = datetime.datetime.now()
+    print "started run at " + str(start_time)
     print "range size " + str(range_size)
     print "domain size " + str(domain_size)
 
+    created_ifs = False
+
     if not os.path.exists(ifs_file):
+        current_range = 0
+        ifs_array = []
+        if os.path.exists(ifs_file + ".part"):
+            (width, height, range_size, domain_size, whiteval, ifs_array) = read_ifs(ifs_file + ".part")
+            nranges = (width / range_size) * (height / range_size)
+            current_range = len(ifs_array)
+            print "ifs file part present - continuing from " + str(current_range) + "/" + str(nranges)
+        else:
+            print "ifs not present - creating ifs file from scratch"
+        created_ifs = True
         print "opening image " + in_file
         (width, height, whiteval, data) = read_pgm(in_file)
         print "done"
         width = int(width)
-        height = int(width)
+        print "image width: " + str(width)
+        height = int(height)
+        print "image height: " + str(height)
         whiteval = int(whiteval)
         for i in xrange(len(data)):
             data[i] = int(data[i])
         fit_threshold = 0  # float(range_size) * 0.001
         image = ifs.IFSImage(width, whiteval, range_size, domain_size, data)
-        ifs_array = []
         resized_domain_array = [None] * image.num_domains
 
         print "calculating best ifs transform for each range"
-        current_range = 0
-        for irange in image.get_ranges():
+        for irange in image.get_ranges(current_range):
             best_domain = None
             best_transform = None
             best_contrast = None
@@ -150,18 +165,19 @@ def main():
                               " of " + str(image.num_ranges) + ")")
                 domain_num += 1
             if verbosity > 0:
-                print "done range " + str(current_range)
-            try:
-                if current_range % (image.num_ranges / 100) == 0:
-                    print str((100 * (current_range + 1)) / image.num_ranges) + "%"
-            except ZeroDivisionError:
-                pass
+                print "done range " + str(current_range) + " (" + str(current_range + 1) + " of " + str(image.num_ranges) + ")"
             ifs_array.append((best_domain, best_transform, best_contrast, best_brightness))
+            write_ifs(ifs_file + ".part", width, height, whiteval, range_size, domain_size, ifs_array)
             current_range += 1
 
         write_ifs(ifs_file, width, height, whiteval, range_size, domain_size, ifs_array)
+        os.remove(ifs_file + ".part")
     else:
+        print "ifs present, opening ifs file"
         (width, height, range_size, domain_size, whiteval, ifs_array) = read_ifs(ifs_file)
+
+    ifs_read_to_memory_time = datetime.datetime.now()
+    print "ifs operations read into memory at " + str(ifs_read_to_memory_time)
 
     seed_data = [128] * width * height
     working_image = ifs.IFSImage(width, whiteval, range_size, domain_size, seed_data)
@@ -173,7 +189,7 @@ def main():
         num_ifs_to_apply = options.iterations
 
     if options.print_intervals != 0:
-        temp_file_dir = out_file.rstrip(".pgm")
+        temp_file_dir = out_file.replace(".pgm", "")
         if not os.path.isdir(temp_file_dir):
             os.mkdir(temp_file_dir)
 
@@ -187,7 +203,7 @@ def main():
     for i in range(num_ifs_to_apply):
         range_num = random.randrange(len(ifs_array))
         if options.print_intervals != 0 and actual_ifs_applied_count % options.print_intervals == 0:
-            temp_out_file = temp_file_dir + "/" + out_file.lstrip("output/").rstrip(".pgm") + "_i" + str(actual_ifs_applied_count) + ".pgm"
+            temp_out_file = temp_file_dir + "/" + out_file.replace("output/", "").replace(".pgm", "") + "_i" + str(actual_ifs_applied_count) + ".pgm"
             working_image.write_pgm(temp_out_file)
         actual_ifs_applied_count += 1
         working_image.apply_ifs(range_num, ifs_array[range_num])
@@ -199,7 +215,7 @@ def main():
                 actual_ifs_applied_count += 1
                 if rnum != 0 and options.print_intervals != 0:
                     if actual_ifs_applied_count % options.print_intervals == 0:
-                        temp_out_file = (temp_file_dir + "/" + out_file.lstrip("output/").rstrip(".pgm") +
+                        temp_out_file = (temp_file_dir + "/" + out_file.replace("output/", "").replace(".pgm", "") +
                                          "_i" + str(actual_ifs_applied_count) + "_f" +
                                          str(num_full_range_scan) + ".pgm")
                         working_image.write_pgm(temp_out_file)
@@ -222,13 +238,25 @@ def main():
                         break
                 if match:
                     print "Exiting loop as ifs has converged"
-                    temp_out_file = temp_file_dir + "/" + out_file.lstrip("output/").rstrip(".pgm") + "_i" + str(actual_ifs_applied_count) + ".pgm"
+                    temp_out_file = temp_file_dir + "/" + out_file.replace("output/", "").replace(".pgm", "") + "_i" + str(actual_ifs_applied_count) + ".pgm"
                     working_image.write_pgm(temp_out_file)
                     break
             else:
                 test_image_data = list(working_image.data)
 
+    finished_operations_time = datetime.datetime.now()
+
     working_image.write_pgm(out_file)
 
+    print "completed reconstructing image at " + str(finished_operations_time)
+
+    step_one_duration = ifs_read_to_memory_time - start_time
+    step_two_duration = finished_operations_time - ifs_read_to_memory_time
+
+    if created_ifs:
+        print "created ifs file in " + str(step_one_duration)
+    else:
+        print "loaded ifs file in " + str(step_one_duration)
+    print "reconstructed image in " + str(step_two_duration)
 
 main()

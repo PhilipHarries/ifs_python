@@ -6,6 +6,13 @@ set -o nounset
 
 parallelism=3
 
+if [[ ! -z "${1}" ]];then
+  name="${1}"
+else
+  name="mira"
+fi
+
+
 for size in 16 32 64 128 160 320;do
   for range in 2 4 8 16 32;do
     if [[ ${range} -ge ${size} ]];then
@@ -17,20 +24,14 @@ for size in 16 32 64 128 160 320;do
         elif [[ ${domain} -ge ${size} ]];then
           continue
         else
-          # iterations=$(( 100 * size * size / range ))
-          # if [[ ${iterations} -gt 256000 ]];then
-          #   iterations=256000
-          # fi
           likely_convergence_time=$(( (size/range) * (size/range) * 16 ))
           num_print_intervals=256
           print_interval=$(( likely_convergence_time / num_print_intervals ))
           while [[ $(jobs|wc -l) -gt ${parallelism} ]];do
             sleep 1
           done
-          logfile="output/mira_${size}x${size}_r${range}_d${domain}.log"
-          date > "${logfile}"
-          echo "size: ${size} range: ${range} domain: ${domain}" >> "${logfile}"
-          /usr/bin/time -avo "${logfile}" -- python run.py -f mira_${size}x${size}.pgm -r ${range} -d ${domain} -p ${print_interval} -v 2 >> "${logfile}" 2>&1 && date >> "${logfile}" || date >> "${logfile}" &
+          logfile="output/${name}_${size}x${size}_r${range}_d${domain}.log"
+          python run.py -f ${name}_${size}x${size}.pgm -r ${range} -d ${domain} -p ${print_interval} >> "${logfile}" 2>&1 &
 
         fi
       done
