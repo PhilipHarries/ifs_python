@@ -96,6 +96,7 @@ def main():
     parser.add_option('-i', '--iterations', action='store', type='int', default=None, help='the number of times to apply ifs during decoding')
     parser.add_option('-p', '--print_intervals', action='store', type='int', default=0, help='the number of times to print interim versions of the generated image')
     parser.add_option('-v', '--verbose', action='store', type='int', default=0, help='verbosity level')
+    parser.add_option('-z', '--zoom', action='store', type='int', default=1, help='fractal zoom level')
     options, _ = parser.parse_args()
     in_file = "input/" + options.file
     range_size = options.rangesize
@@ -175,6 +176,17 @@ def main():
     else:
         print "ifs present, opening ifs file"
         (width, height, range_size, domain_size, whiteval, ifs_array) = read_ifs(ifs_file)
+
+    if options.zoom != 1:
+        width = options.zoom * width
+        height = options.zoom * height
+        range_size = options.zoom * range_size
+        domain_size = options.zoom * domain_size
+        zoomed_ifs_array = []
+        for an_ifs in ifs_array:
+            zoomed_ifs_array.append((an_ifs[0] * options.zoom, an_ifs[1], an_ifs[2], an_ifs[3]))
+        ifs_array = zoomed_ifs_array
+        out_file = out_file.replace(".pgm", "_z" + str(options.zoom) + ".pgm")
 
     ifs_read_to_memory_time = datetime.datetime.now()
     print "ifs operations read into memory at " + str(ifs_read_to_memory_time)

@@ -12,6 +12,7 @@ else
   name="mira"
 fi
 
+zoom=1
 
 for size in 16 32 64 128 160 320;do
   for range in 2 4 8 16 32;do
@@ -31,8 +32,7 @@ for size in 16 32 64 128 160 320;do
             sleep 1
           done
           logfile="output/${name}_${size}x${size}_r${range}_d${domain}.log"
-          python run.py -f ${name}_${size}x${size}.pgm -r ${range} -d ${domain} -p ${print_interval} >> "${logfile}" 2>&1 &
-
+          python run.py -f ${name}_${size}x${size}.pgm -r ${range} -d ${domain} -p ${print_interval} -z ${zoom} >> "${logfile}" 2>&1 &
         fi
       done
     fi
