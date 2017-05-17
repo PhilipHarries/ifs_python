@@ -91,7 +91,6 @@ ENV/
 # Mac OSX DS_Store Directory attributes
 .DS_Store
 
-*.pgm
 *.ifs
 encoded_files/
 output/
