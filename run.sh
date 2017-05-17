@@ -6,27 +6,32 @@ set -o nounset
 
 parallelism=3
 
+
+[[ ! -d input ]] && mkdir input
+[[ ! -d output ]] && mkdir output
+[[ ! -d encoded_files ]] && mkdir output
+
 if [[ ! -z "${1}" ]];then
   name="${1}"
 else
-  name="mira"
+  name="lena"
 fi
 
 zoom=1
 
-for size in 16 32 64 128 160 320;do
-  for range in 2 4 8 16 32;do
+for size in 512;do
+  for range in 2 4 8 16 32 64 128;do
     if [[ ${range} -ge ${size} ]];then
       continue
     else
-      for domain in 4 8 16 32 64 128;do
+      for domain in 4 8 16 32 64 128 256 512;do
         if [[ ${range} -ge ${domain} ]];then
           continue
         elif [[ ${domain} -ge ${size} ]];then
           continue
         else
           likely_convergence_time=$(( (size/range) * (size/range) * 16 ))
-          num_print_intervals=256
+          num_print_intervals=30
           print_interval=$(( likely_convergence_time / num_print_intervals ))
           while [[ $(jobs|wc -l) -gt ${parallelism} ]];do
             sleep 1

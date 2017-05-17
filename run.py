@@ -3,7 +3,8 @@ import random
 import os
 import optparse
 import datetime
-import ifs
+import numpy_ifs
+from time import time
 
 
 class InvalidFileFormatError(Exception):
@@ -18,20 +19,27 @@ def read_pgm(filename):
     with open(filename, 'r') as image_file:
         line_count = 0
         data = []
-        for line in image_file:
-            line = line.rstrip('\n')
-            if line_count == 0:
-                if line != "P2":
-                    raise InvalidFileFormatError
-            elif line_count == 1:
-                pass
-            elif line_count == 2:
-                (width, height) = line.split(" ")
-            elif line_count == 3:
-                whiteval = line
-            else:
-                data.append(line)
-            line_count += 1
+        try:
+            for line in image_file:
+                line = line.rstrip('\n')
+                if line_count == 0:
+                    if line != "P2":
+                        raise InvalidFileFormatError
+                elif line_count == 1:
+                    pass
+                elif line_count == 2:
+                    (width, height) = line.split()
+                elif line_count == 3:
+                    whiteval = line
+                else:
+                    for val in line.split():
+                        data.append(val)
+                line_count += 1
+	except ValueError as ve:
+            print "Error encountered with the following line!"
+            print line
+            print ve
+            raise ve
         return (width, height, whiteval, data)
 
 
@@ -58,12 +66,16 @@ def read_ifs(filename):
                 domain_size = int(domain_size)
                 whiteval = int(whiteval)
             else:
-                (dom, tra, con, bri) = line.split(" ")
-                dom = int(dom)
-                tra = int(tra)
-                con = float(con)
-                bri = float(bri)
-                data.append((dom, tra, con, bri))
+                try:
+                    (dom, tra, con, bri) = line.split()
+                    dom = int(dom)
+                    tra = int(tra)
+                    con = float(con)
+                    bri = float(bri)
+                    data.append((dom, tra, con, bri))
+                except ValueError as ve:
+                    print "line is: {}".format(line)
+                    raise ve
             line_count += 1
     if (width is None or height is None or whiteval is None or
             range_size is None or domain_size is None or
@@ -74,7 +86,6 @@ def read_ifs(filename):
 
 def write_ifs(filename, width, height, whiteval, range_size, domain_size, ifs_data):
     """ write encoded ifs data to a file """
-    print "writing " + filename
     with open(filename, 'w') as ifs_file:
         ifs_file.write("#IFS\n")
         ifs_file.write(str(width) + " " + str(height) + " " +
@@ -131,14 +142,17 @@ def main():
         height = int(height)
         print "image height: " + str(height)
         whiteval = int(whiteval)
-        for i in xrange(len(data)):
-            data[i] = int(data[i])
+        data = [int(val) for val in data]
         fit_threshold = 0  # float(range_size) * 0.001
-        image = ifs.IFSImage(width, whiteval, range_size, domain_size, data)
+        image = numpy_ifs.IFSImage(width, whiteval, range_size, domain_size, data)
         resized_domain_array = [None] * image.num_domains
+        pgm_part_write = 1
 
         print "calculating best ifs transform for each range"
+        calc_time = 0
         for irange in image.get_ranges(current_range):
+            if current_range < 10:
+                start = time()
             best_domain = None
             best_transform = None
             best_contrast = None
@@ -148,7 +162,7 @@ def main():
             for domain in image.get_domains():
                 if resized_domain_array[domain_num] is None:
                     resized_domain_array[domain_num] = domain.resize(range_size)
-                (transform, contrast, brightness, fit) = ifs.find_best_transform(irange, resized_domain_array[domain_num])
+                (transform, contrast, brightness, fit) = numpy_ifs.find_best_transform(irange, resized_domain_array[domain_num])
                 if fit < best_fit:
                     best_fit = fit
                     best_domain = domain_num
@@ -166,10 +180,29 @@ def main():
                               " of " + str(image.num_ranges) + ")")
                 domain_num += 1
             if verbosity > 0:
-                print "done range " + str(current_range) + " (" + str(current_range + 1) + " of " + str(image.num_ranges) + ")"
+                if current_range % 1000 == 0:
+                    print "done range " + str(current_range) + " (" + str(current_range + 1) + " of " + str(image.num_ranges) + ")"
             ifs_array.append((best_domain, best_transform, best_contrast, best_brightness))
-            write_ifs(ifs_file + ".part", width, height, whiteval, range_size, domain_size, ifs_array)
+            if current_range < 10:
+                elapsed = time() - start
+                calc_time += elapsed
             current_range += 1
+            if current_range == 10:
+                print "first 10 calculations took {} seconds".format(calc_time)
+                if 1 / calc_time > 500:
+                    pgm_part_write = 10000
+                elif 1 / calc_time > 100:
+                    pgm_part_write = 3000
+                elif 1 / calc_time > 10:
+                    pgm_part_write = 300
+                elif 1 / calc_time > 1:
+                    pgm_part_write = 30
+                elif 1 / calc_time > 0.2:
+                    pgm_part_write = 12
+            if current_range % pgm_part_write == 0:
+                write_ifs(ifs_file + ".part", width, height, whiteval, range_size, domain_size, ifs_array)
+
+        print "finished calculations"
 
         write_ifs(ifs_file, width, height, whiteval, range_size, domain_size, ifs_array)
         os.remove(ifs_file + ".part")
@@ -192,7 +225,7 @@ def main():
     print "ifs operations read into memory at " + str(ifs_read_to_memory_time)
 
     seed_data = [128] * width * height
-    working_image = ifs.IFSImage(width, whiteval, range_size, domain_size, seed_data)
+    working_image = numpy_ifs.IFSImage(width, whiteval, range_size, domain_size, seed_data)
 
     order_of_convergence_iterations = 16 * (width / range_size) * (width / range_size)
     if options.iterations is None:
@@ -209,7 +242,7 @@ def main():
     force_range_scan_interval = working_image.num_ranges
     print "testing for convergence every " + str(test_sample_interval) + " ifs applied"
     print "forcing full range scan every " + str(force_range_scan_interval) + " ifs applied"
-    test_image_data = list(working_image.data)
+    test_image_data = working_image.data.copy()
     actual_ifs_applied_count = 0
     num_full_range_scan = 0
     for i in range(num_ifs_to_apply):
@@ -233,8 +266,8 @@ def main():
                         working_image.write_pgm(temp_out_file)
         if (actual_ifs_applied_count + 1) % test_sample_interval == 0:
             match = True
-            for j in range(len(working_image.data)):
-                if working_image.data[j] != test_image_data[j]:
+            for j in range(working_image.data.size):
+                if working_image.data.item(j) != test_image_data.item(j):
                     match = False
                     break
             if match:
@@ -243,9 +276,9 @@ def main():
                     working_image.apply_ifs(rnum, an_ifs)
                     actual_ifs_applied_count += 1
                 for k in range(len(working_image.data)):
-                    if working_image.data[k] != test_image_data[k]:
+                    if working_image.data.item(k) != test_image_data.item(k):
                         print "   it hadn't converged"
-                        test_image_data = working_image.data
+                        test_image_data = working_image.data.copy()
                         match = False
                         break
                 if match:
@@ -254,7 +287,7 @@ def main():
                     working_image.write_pgm(temp_out_file)
                     break
             else:
-                test_image_data = list(working_image.data)
+                test_image_data = working_image.data.copy()
 
     finished_operations_time = datetime.datetime.now()
 
