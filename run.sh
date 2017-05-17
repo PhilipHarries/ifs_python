@@ -2,9 +2,8 @@
 
 set -o errexit
 set -o pipefail
-set -o nounset
 
-parallelism=3
+parallelism=5
 
 
 [[ ! -d input ]] && mkdir input

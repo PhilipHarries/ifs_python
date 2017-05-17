@@ -143,7 +143,7 @@ def main():
         print "image height: " + str(height)
         whiteval = int(whiteval)
         data = [int(val) for val in data]
-        fit_threshold = 0  # float(range_size) * 0.001
+        fit_threshold = float(range_size) * 1
         image = numpy_ifs.IFSImage(width, whiteval, range_size, domain_size, data)
         resized_domain_array = [None] * image.num_domains
         pgm_part_write = 1
@@ -160,6 +160,7 @@ def main():
             best_fit = 9999999999
             domain_num = 0
             for domain in image.get_domains():
+                print "range {}, domain: {}/{}".format(current_range, domain_num, image.num_domains)
                 if resized_domain_array[domain_num] is None:
                     resized_domain_array[domain_num] = domain.resize(range_size)
                 (transform, contrast, brightness, fit) = numpy_ifs.find_best_transform(irange, resized_domain_array[domain_num])
@@ -169,6 +170,7 @@ def main():
                     best_transform = transform
                     best_contrast = contrast
                     best_brightness = brightness
+                    print fit
                 if fit <= fit_threshold:
                     break
                 if verbosity > 1:
