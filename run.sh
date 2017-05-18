@@ -5,7 +5,6 @@ set -o pipefail
 
 parallelism=5
 
-
 [[ ! -d input ]] && mkdir input
 [[ ! -d output ]] && mkdir output
 [[ ! -d encoded_files ]] && mkdir output
@@ -18,7 +17,7 @@ fi
 
 zoom=1
 
-for size in 512;do
+for size in 32 64 128 256 512;do
   for range in 2 4 8 16 32 64 128;do
     if [[ ${range} -ge ${size} ]];then
       continue

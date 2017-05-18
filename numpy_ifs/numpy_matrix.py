@@ -182,8 +182,6 @@ def find_best_transform(range_matrix, domain_matrix):
         fit_value = diff_ifs_matrices(range_matrix, transformed_domain)
         fit_threshold = float(range_matrix.length) * 1
         if fit_value < fit_threshold:
-            print "{}: fit value {} is below threshold {}".format(transform_num, fit_value, fit_threshold)
-            print "r: {} d: {}".format(range_matrix.data, transformed_domain.data)
             return (transform_num, contrast, brightness, fit_value)
         elif fit_value < best_fit_value:
             best_fit_value = fit_value

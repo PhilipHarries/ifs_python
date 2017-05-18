@@ -143,7 +143,7 @@ def main():
         print "image height: " + str(height)
         whiteval = int(whiteval)
         data = [int(val) for val in data]
-        fit_threshold = float(range_size) * 1
+        fit_threshold = float(range_size*range_size) * 1
         image = numpy_ifs.IFSImage(width, whiteval, range_size, domain_size, data)
         resized_domain_array = [None] * image.num_domains
         pgm_part_write = 1
@@ -151,6 +151,7 @@ def main():
         print "calculating best ifs transform for each range"
         calc_time = 0
         for irange in image.get_ranges(current_range):
+            print "range: {}/{}".format(current_range, image.num_ranges)
             if current_range < 10:
                 start = time()
             best_domain = None
@@ -160,17 +161,17 @@ def main():
             best_fit = 9999999999
             domain_num = 0
             for domain in image.get_domains():
-                print "range {}, domain: {}/{}".format(current_range, domain_num, image.num_domains)
                 if resized_domain_array[domain_num] is None:
                     resized_domain_array[domain_num] = domain.resize(range_size)
                 (transform, contrast, brightness, fit) = numpy_ifs.find_best_transform(irange, resized_domain_array[domain_num])
                 if fit < best_fit:
+                    # print "range: {}, domain: {}/{}".format(current_range, domain_num, image.num_domains)
                     best_fit = fit
                     best_domain = domain_num
                     best_transform = transform
                     best_contrast = contrast
                     best_brightness = brightness
-                    print fit
+                    # print "fit: {} threshold: {}".format(fit, fit_threshold)
                 if fit <= fit_threshold:
                     break
                 if verbosity > 1:
